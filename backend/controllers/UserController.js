@@ -1,7 +1,12 @@
 import bcrypt from 'bcrypt';
 import UserModel from '../models/UserModel.js';
 import jwt from 'jsonwebtoken';
-
+import { v2 as cloudinary } from 'cloudinary';
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 const RegisterUser = async (req, res) => {
     try {
         const { name, email, password, profile_pic } = req.body;
@@ -21,27 +26,21 @@ const RegisterUser = async (req, res) => {
         const newUser = new UserModel({ name, email, password: hashedPassword, profile_pic });
         const data = await newUser.save();
 
-        return res.status(201).json({ message: "User registered successfully", success: true, data });
+        const token = jwt.sign({ userId: newUser._id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '1d' });
+
+        res.cookie("jwt", token, {
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            httpOnly: true,
+            sameSite: "strict",
+            secure: process.env.NODE_ENV !== "development",
+        });
+
+        return res.status(201).json({ message: "User registered successfully", success: true, data, token });
     } catch (err) {
         return res.status(500).json({ message: err.message, success: false });
     }
 };
 
-const checkEMail = async (req, res) => {
-    try {
-        const { email } = req.body;
-
-        const checkmail = await UserModel.findOne({ email }).select('-password');
-
-        if (!checkmail) {
-            return res.status(400).json({ success: true, message: "User does not exist" });
-        }
-
-        return res.status(200).json({ success: true, message: "Email verified", data: checkmail });
-    } catch (err) {
-        return res.status(500).json({ success: false, message: err.message });
-    }
-};
 
 const LoginUser = async (req, res) => {
     try {
@@ -65,6 +64,13 @@ const LoginUser = async (req, res) => {
 
         const token = jwt.sign({ userId: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1d' });
 
+        res.cookie("jwt", token, {
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            httpOnly: true,
+            sameSite: "strict",
+            secure: process.env.NODE_ENV !== "development",
+        });
+
         return res.status(200).json({ message: "Login successful", success: true, token });
     } catch (err) {
         return res.status(500).json({ success: false, message: err.message });
@@ -73,15 +79,13 @@ const LoginUser = async (req, res) => {
 
 const GetUserDetails = async (req, res) => {
     try {
-        const {token} = req.headers
+        const { userId } = req.body;
 
-        if (!token) {
-            return res.status(401).json({ success: false, message: "No token provided" });
+        if (!userId) {
+            return res.status(401).json({ success: false, message: "No userId provided" });
         }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET); // Verify token
-
-        const user = await UserModel.findById(decoded.userId).select('-password'); // Find user by ID and exclude password
+        const user = await UserModel.findById(userId).select('-password');
 
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found" });
@@ -89,62 +93,50 @@ const GetUserDetails = async (req, res) => {
 
         return res.status(200).json({ success: true, message: "User details retrieved successfully", data: user });
     } catch (err) {
-        if (err.name === "JsonWebTokenError") {
-            return res.status(401).json({ success: false, message: "Invalid token" });
-        }
-        if (err.name === "TokenExpiredError") {
-            return res.status(401).json({ success: false, message: "Token expired" });
-        }
-        console.error(err);
         return res.status(500).json({ success: false, message: err.message });
     }
 };
 
 const UpdateUserDetails = async (req, res) => {
     try {
-        const { token } = req.headers;
-        const { name, email, password, profile_pic } = req.body;
+        const { userId } = req.body;
+        const { name, email} = req.body;
+        const imageFile = req.file; 
 
-        if (!token) {
-            return res.status(401).json({ success: false, message: "No token provided" });
+        // console.log(imageFile);
+
+        const updatedUser = await UserModel.findByIdAndUpdate(
+            userId,
+            { name, email},
+            { new: true }
+        );
+
+        if (imageFile) {
+            const imageUpload = await cloudinary.uploader.upload(imageFile.path, { resource_type: 'image' });
+            const imageUrl = imageUpload.secure_url;
+            updatedUser.profile_pic = imageUrl;
+            await updatedUser.save();
         }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        res.json({ success: true, message: "Profile updated", userData: updatedUser });
 
-        const user = await UserModel.findById(decoded.userId);
-        if (!user) {
-            return res.status(404).json({ success: false, message: "User not found" });
-        }
-
-        if (name) user.name = name;
-        if (email) {
-            const emailExists = await UserModel.findOne({ email });
-            if (emailExists && emailExists._id.toString() !== user._id.toString()) {
-                return res.status(400).json({ success: false, message: "Email already in use" });
-            }
-            user.email = email;
-        }
-        if (password) {
-            user.password = await bcrypt.hash(password, 10);
-        }
-        if (profile_pic) user.profile_pic = profile_pic;
-
-        const updatedUser = await user.save();
-
-        return res.status(200).json({
-            success: true,
-            message: "User details updated successfully",
-            data: updatedUser,
-        });
     } catch (err) {
-        if (err.name === "JsonWebTokenError") {
-            return res.status(401).json({ success: false, message: "Invalid token" });
-        }
-        if (err.name === "TokenExpiredError") {
-            return res.status(401).json({ success: false, message: "Token expired" });
-        }
+        console.log(err)
         return res.status(500).json({ success: false, message: err.message });
     }
 };
 
-export { RegisterUser, checkEMail, LoginUser, GetUserDetails, UpdateUserDetails };
+const LogoutUser = (req, res) => {
+    try {
+        res.clearCookie("jwt", {
+            httpOnly: true,
+            sameSite: "strict",
+            secure: process.env.NODE_ENV !== "development",
+        });
+        return res.status(200).json({ success: true, message: "Logout successful" });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+export { RegisterUser, LoginUser, GetUserDetails, UpdateUserDetails, LogoutUser };
