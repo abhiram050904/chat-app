@@ -20,8 +20,8 @@ const App = () => {
   }, []);
 
   const handleLogin = (token) => {
-    localStorage.setItem('token', token);
-    setIsAuthenticated(true);
+    localStorage.setItem('token', token);  // Store token in localStorage
+    setIsAuthenticated(true);  // Update authentication state
   };
 
   const handleLogout = () => {

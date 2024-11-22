@@ -1,171 +1,184 @@
-import React, { useState,useEffect } from 'react';
-import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
+import React, { useState, useEffect, useRef } from 'react';
+import { IoClose } from 'react-icons/io5';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import logo from '../images/logo.png';
 import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 const Register = () => {
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
   });
+  const [uploadPhoto, setUploadPhoto] = useState(null);
+  const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
-    // Redirect user if token exists in localStorage
-    useEffect(() => {
-      if (localStorage.getItem('token')) {
-        navigate('/');
-      }
-    }, [navigate]);
+  useEffect(() => {
+    if (localStorage.getItem('token')) {
+      navigate('/');
+    }
+  }, [navigate]);
 
-  const handleChange = (e) => {
+  const handleOnChange = (e) => {
     const { name, value } = e.target;
     setFormData((prevState) => ({
       ...prevState,
-      [name]: value
+      [name]: value,
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validate that passwords match
     if (formData.password !== formData.confirmPassword) {
       toast.error("Passwords do not match");
       return;
     }
 
-    // Make the API call for registration
+    const formDataToSend = new FormData();
+    formDataToSend.append('name', formData.name);
+    formDataToSend.append('email', formData.email);
+    formDataToSend.append('password', formData.password);
+    formDataToSend.append('image', uploadPhoto);
+
     try {
-      const { data } = await axios.post('http://localhost:5000/api/user/register', formData);
-      if (data.success) {
+      const { data } = await axios.post('http://localhost:5000/api/user/register', formDataToSend, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      if (data?.success) {
         toast.success(data.message);
         localStorage.setItem('token', data.token);
         navigate('/');
+      } else {
+        toast.error(data?.message || 'Registration failed');
       }
     } catch (error) {
-      if (error.response) {
-        toast.error(error.response.data.message || 'Registration failed. Please try again.');
-      } else {
-        toast.error('Network error. Please check your internet connection.');
-      }
+      toast.error(error.response?.data?.message || 'Registration failed. Please try again.');
     }
   };
 
+  const handleUploadPhoto = (e) => {
+    const file = e.target.files[0];
+    setUploadPhoto(file);
+  };
+
+  const handleClearUploadPhoto = () => {
+    setUploadPhoto(null);
+  };
+
+  const handleFileInputClick = () => {
+    fileInputRef.current.click();
+  };
+
   return (
-    <div className='min-h-screen grid lg:grid-cols-2 bg-gray-50'>
-      <div className='flex flex-col justify-center items-center p-6 sm:p-12'>
-        <div className='w-full max-w-md space-y-8'>
-          <div className='text-center mb-8'>
-            <div className='flex flex-col items-center gap-2 group'>
-              <div className='size-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors'>
-                <img src={logo} className='size-6 text-primary' alt="Logo" />
-              </div>
-              <h1 className='text-3xl font-bold text-gray-800 mt-2'>Create Account</h1>
-              <p className='text-base-content/60'>Get started with your Account</p>
-            </div>
+    <div className='mt-5'>
+      <div className='bg-white w-full max-w-lg rounded-lg shadow-lg p-8 mx-auto'>
+        <h3 className='text-2xl font-semibold text-center text-gray-800 mb-5'>Welcome to Chat app!</h3>
+
+        <form className='space-y-6' onSubmit={handleSubmit}>
+          <div className='flex flex-col'>
+            <label htmlFor='name' className='text-sm font-medium text-gray-700'>Name :</label>
+            <input
+              type='text'
+              id='name'
+              name='name'
+              placeholder='Enter your name'
+              className='bg-slate-100 border border-gray-300 rounded-lg px-4 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary'
+              value={formData.name}
+              onChange={handleOnChange}
+              required
+            />
           </div>
 
-          <form onSubmit={handleSubmit} className='space-y-6'>
-            <div className="flex items-center border border-gray-300 rounded-md shadow-sm group hover:ring-2 hover:ring-primary focus:outline-none">
-              <FaUser className="ml-3 text-gray-500 group-focus:text-primary group-hover:text-primary" />
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border-0 focus:outline-none focus:ring-0 focus:border-none focus:ring-primary focus:border-primary rounded-md"
-                placeholder="Enter your full name"
-                required
-              />
-            </div>
-
-            <div className="flex items-center border border-gray-300 rounded-md shadow-sm group hover:ring-2 hover:ring-primary focus:outline-none">
-              <FaEnvelope className="ml-3 text-gray-500 group-focus:text-primary group-hover:text-primary" />
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border-0 focus:outline-none focus:ring-0 focus:border-none focus:ring-primary focus:border-primary rounded-md"
-                placeholder="Enter your email"
-                required
-              />
-            </div>
-
-            <div className="flex items-center border border-gray-300 rounded-md shadow-sm group hover:ring-2 hover:ring-primary focus:outline-none">
-              <FaLock className="ml-3 text-gray-500 group-focus:text-primary group-hover:text-primary" />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                id="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border-0 focus:outline-none focus:ring-0 focus:ring-primary focus:border-primary rounded-md"
-                placeholder="Enter your password"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                className="ml-2 text-primary group-hover:text-primary"
-              >
-                {showPassword ? <FaEyeSlash /> : <FaEye />}
-              </button>
-            </div>
-
-            <div className="flex items-center border border-gray-300 rounded-md shadow-sm group hover:ring-2 hover:ring-primary focus:outline-none">
-              <FaLock className="ml-3 text-gray-500 group-focus:text-primary group-hover:text-primary" />
-              <input
-                type={showConfirmPassword ? 'text' : 'password'}
-                id="confirmPassword"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border-0 focus:outline-none focus:ring-0 focus:ring-primary focus:border-primary rounded-md"
-                placeholder="Confirm your password"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword((prev) => !prev)}
-                className="ml-2 text-primary group-hover:text-primary"
-              >
-                {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-              </button>
-            </div>
-
-            <div>
-              <button
-                type="submit"
-                className="w-full py-2 px-4 bg-primary text-white rounded-md hover:bg-primary/80 focus:outline-none focus:ring-2 focus:ring-primary transition duration-200 ease-in-out"
-              >
-                Create Account
-              </button>
-            </div>
-          </form>
-
-          <div className="text-center mt-4">
-            <p className="text-sm text-gray-600">
-              Already have an account?{' '}
-              <a href="/login" className="text-primary font-semibold hover:underline">
-                Login
-              </a>
-            </p>
+          <div className='flex flex-col'>
+            <label htmlFor='email' className='text-sm font-medium text-gray-700'>Email :</label>
+            <input
+              type='email'
+              id='email'
+              name='email'
+              placeholder='Enter your email'
+              className='bg-slate-100 border border-gray-300 rounded-lg px-4 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary'
+              value={formData.email}
+              onChange={handleOnChange}
+              required
+            />
           </div>
-        </div>
-      </div>
 
-      <div className='hidden lg:block bg-gray-100 rounded-l-xl shadow-lg'>
-        {/* Optional Image or Illustration */}
+          <div className='flex flex-col'>
+            <label htmlFor='password' className='text-sm font-medium text-gray-700'>Password :</label>
+            <input
+              type='password'
+              id='password'
+              name='password'
+              placeholder='Enter your password'
+              className='bg-slate-100 border border-gray-300 rounded-lg px-4 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary'
+              value={formData.password}
+              onChange={handleOnChange}
+              required
+            />
+          </div>
+
+          <div className='flex flex-col'>
+            <label htmlFor='confirmPassword' className='text-sm font-medium text-gray-700'>Confirm Password :</label>
+            <input
+              type='password'
+              id='confirmPassword'
+              name='confirmPassword'
+              placeholder='Confirm your password'
+              className='bg-slate-100 border border-gray-300 rounded-lg px-4 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary'
+              value={formData.confirmPassword}
+              onChange={handleOnChange}
+              required
+            />
+          </div>
+
+          <div className='flex flex-col'>
+            <label htmlFor='profile_pic' className='text-sm font-medium text-gray-700'>
+              Photo :
+            </label>
+            <div className='h-14 bg-slate-200 border border-gray-300 rounded-lg flex items-center justify-between px-4 cursor-pointer' onClick={handleFileInputClick}>
+              <p className='text-sm text-gray-700 truncate'>
+                {uploadPhoto?.name || "Upload profile photo"}
+              </p>
+              {uploadPhoto && (
+                <button
+                  type='button'
+                  className='text-lg text-red-600 hover:text-red-700'
+                  onClick={handleClearUploadPhoto}
+                >
+                  <IoClose />
+                </button>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type='file'
+              id='profile_pic'
+              name='profile_pic'
+              className='hidden'
+              onChange={handleUploadPhoto}
+            />
+          </div>
+
+          <button
+            type='submit'
+            className='w-full bg-blue-500 text-lg text-white font-bold py-3 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50'
+          >
+            Register
+          </button>
+        </form>
+
+        <p className='my-3 text-center'>
+          Already have an account?{' '}
+          <Link to='/login' className='font-semibold text-blue-500 hover:text-blue-600'>
+            Login
+          </Link>
+        </p>
       </div>
     </div>
   );

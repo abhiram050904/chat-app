@@ -1,113 +1,136 @@
 import React, { useState } from 'react';
-import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';  
+import { IoClose } from "react-icons/io5";
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { useNavigate } from 'react-router-dom';
-import 'react-toastify/dist/ReactToastify.css';
-import logo from '../images/logo.png';
+import { PiUserCircle } from "react-icons/pi";
 
-const Login = ({ onLogin }) => {
-  const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({ email: '', password: '' });
+const Login = ({ onLogin }) => {  // Accept the onLogin prop
+  const [data, setData] = useState({
+    email: "",
+    password: "",
+  });
+  const [isEmailValid, setIsEmailValid] = useState(false);
+  const [isPasswordFieldVisible, setIsPasswordFieldVisible] = useState(false);
   const navigate = useNavigate();
 
-  const handleChange = (e) => {
+  const handleOnChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prevState) => ({
-      ...prevState,
-      [name]: value
-    }));
+
+    setData((prev) => {
+      return {
+        ...prev,
+        [name]: value,
+      };
+    });
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmitEmail = async (e) => {
     e.preventDefault();
+    e.stopPropagation();
+
+    const URL = `http://localhost:5000/api/user/check-email`;
 
     try {
-      const { data } = await axios.post('http://localhost:5000/api/user/login', formData);
-      if (data.success) {
-        toast.success(data.message);
-        onLogin(data.token);  // Update parent component with token
-        navigate('/'); // Navigate to home page after login
+      const response = await axios.post(URL, { email: data.email });
+
+      if (response.data.success) {
+        setIsEmailValid(true);
+        toast.success('Valid email');
+        setIsPasswordFieldVisible(true);
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Login failed. Please try again.');
+      toast.error(error?.response?.data?.message || "Error validating email");
+    }
+  };
+
+  const handleSubmitPassword = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const URL = `http://localhost:5000/api/user/login`;
+
+    try {
+      const response = await axios.post(URL, { email: data.email, password: data.password });
+      console.log(response);
+
+      if (response.data.success) {
+        localStorage.setItem('token', response.data.token);  // Save token to localStorage
+        toast.success(response.data.message);
+
+        setData({
+          email: "",
+          password: "",
+        });
+
+        onLogin(response.data.token);  // Update authentication state in App.js
+
+        setTimeout(() => {
+          navigate('/');
+        }, 100);
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Error logging in");
     }
   };
 
   return (
-    <div className='min-h-screen grid lg:grid-cols-2 bg-gray-50'>
-      <div className='flex flex-col justify-center items-center p-6 sm:p-12'>
-        <div className='w-full max-w-md space-y-8'>
-          <div className='text-center mb-8'>
-            <div className='flex flex-col items-center gap-2 group'>
-              <div className='size-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors'>
-                <img src={logo} className='size-6 text-primary' alt="Logo" />
-              </div>
-              <h1 className='text-3xl font-bold text-gray-800 mt-2'>Login</h1>
-              <p className='text-base-content/60'>Welcome back to your Account</p>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className='space-y-6'>
-            <div className="flex items-center border border-gray-300 rounded-md shadow-sm group hover:ring-2 hover:ring-primary focus:outline-none">
-              <FaEnvelope className="ml-3 text-gray-500 group-focus:text-primary group-hover:text-primary" />
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border-0 focus:outline-none focus:ring-0 focus:border-none focus:ring-primary focus:border-primary rounded-md"
-                placeholder="Enter your email"
-                required
-              />
-            </div>
-
-            <div className="flex items-center border border-gray-300 rounded-md shadow-sm group hover:ring-2 hover:ring-primary focus:outline-none">
-              <FaLock className="ml-3 text-gray-500 group-focus:text-primary group-hover:text-primary" />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                id="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border-0 focus:outline-none focus:ring-0 focus:ring-primary focus:border-primary rounded-md"
-                placeholder="Enter your password"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-                className="ml-2 text-primary group-hover:text-primary"
-              >
-                {showPassword ? <FaEyeSlash /> : <FaEye />}
-              </button>
-            </div>
-
-            <div>
-              <button
-                type="submit"
-                className="w-full py-2 px-4 bg-primary text-white rounded-md hover:bg-primary/80 focus:outline-none focus:ring-2 focus:ring-primary transition duration-200 ease-in-out"
-              >
-                Login
-              </button>
-            </div>
-          </form>
-
-          <div className="text-center mt-4">
-            <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
-              <a href="/register" className="text-primary font-semibold hover:underline">
-                Create Account
-              </a>
-            </p>
-          </div>
+    <div className='mt-5'>
+      <div className='bg-white w-full max-w-md rounded overflow-hidden p-4 mx-auto'>
+        <div className='w-fit mx-auto mb-2'>
+          <PiUserCircle size={80} />
         </div>
-      </div>
 
-      <div className='hidden lg:block bg-gray-100 rounded-l-xl shadow-lg'>
-        {/* Optional Image or Illustration */}
+        <h3>Welcome to Chat app!</h3>
+
+        {!isEmailValid ? (
+          <form className='grid gap-4 mt-3' onSubmit={handleSubmitEmail}>
+            <div className='flex flex-col gap-1'>
+              <label htmlFor='email'>Email :</label>
+              <input
+                type='email'
+                id='email'
+                name='email'
+                placeholder='Enter your email'
+                className='bg-slate-100 px-2 py-1 focus:outline-primary'
+                value={data.email}
+                onChange={handleOnChange}
+                required
+              />
+            </div>
+
+            <button className='bg-primary text-lg px-4 py-1 hover:bg-secondary rounded mt-2 font-bold text-white leading-relaxed tracking-wide'>
+              Let's Go
+            </button>
+          </form>
+        ) : (
+          <form className='grid gap-4 mt-3' onSubmit={handleSubmitPassword}>
+            <div className='flex flex-col gap-1'>
+              <label htmlFor='password'>Password :</label>
+              <input
+                type='password'
+                id='password'
+                name='password'
+                placeholder='Enter your password'
+                className='bg-slate-100 px-2 py-1 focus:outline-primary'
+                value={data.password}
+                onChange={handleOnChange}
+                required
+              />
+            </div>
+
+            <button className='bg-primary text-lg px-4 py-1 hover:bg-secondary rounded mt-2 font-bold text-white leading-relaxed tracking-wide'>
+              Submit
+            </button>
+          </form>
+        )}
+
+        <p className='my-3 text-center'>
+          New User?{' '}
+          <Link to={"/register"} className='hover:text-primary font-semibold'>
+            Register
+          </Link>
+        </p>
       </div>
     </div>
   );
