@@ -10,6 +10,7 @@ cloudinary.config({
 const RegisterUser = async (req, res) => {
     try {
         const { name, email, password, profile_pic } = req.body;
+        const imageFile = req.file; 
 
         if (!name || !email || !password) {
             return res.status(400).json({ message: "All fields are required", success: false });
@@ -23,7 +24,12 @@ const RegisterUser = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        const newUser = new UserModel({ name, email, password: hashedPassword, profile_pic });
+        let imageUrl;
+        if (imageFile) {
+            const imageUpload = await cloudinary.uploader.upload(imageFile.path, { resource_type: 'image' });
+            imageUrl = imageUpload.secure_url;
+        }
+        const newUser = new UserModel({ name, email, password: hashedPassword, profile_pic:imageUrl });
         const data = await newUser.save();
 
         const token = jwt.sign({ userId: newUser._id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '1d' });
@@ -139,4 +145,25 @@ const LogoutUser = (req, res) => {
     }
 };
 
-export { RegisterUser, LoginUser, GetUserDetails, UpdateUserDetails, LogoutUser };
+
+const CheckEmail = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ success: false, message: "Email is required" });
+        }
+
+        const user = await UserModel.findOne({ email });
+
+        if (user) {
+            return res.status(200).json({ success: true, message: "Email exists" });
+        } else {
+            return res.status(404).json({ success: false, message: "Email does not exist" });
+        }
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+export { RegisterUser, LoginUser, GetUserDetails, UpdateUserDetails, LogoutUser,CheckEmail };

@@ -1,118 +1,115 @@
 import React, { useState } from 'react';
+import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';  
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import 'react-toastify/dist/ReactToastify.css';
+import logo from '../images/logo.png';
 
-const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  // Fix: Call useNavigate properly
+const Login = ({ onLogin }) => {
+  const [showPassword, setShowPassword] = useState(false);
+  const [formData, setFormData] = useState({ email: '', password: '' });
   const navigate = useNavigate();
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prevState) => ({
+      ...prevState,
+      [name]: value
+    }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Check if email and password are provided
-    if (!email || !password) {
-      toast.error('Email and password are required');
-      return;
-    }
-
-    setLoading(true);
-
     try {
-      // Send login request to the server
-      const response = await axios.post('http://localhost:5000/api/user/login', {
-        email,
-        password,
-      });
-
-      if (response.data.success) {
-        // Handle successful login (you might want to redirect the user or save a token)
-        toast.success('Login successful!');
-        console.log('Login successful', response.data);
-        localStorage.setItem('token', response.data.token); // Fix token key to be in quotes
-        navigate('/'); // Use navigate properly
-      } else {
-        // Handle invalid login credentials
-        toast.error('Invalid email or password');
+      const { data } = await axios.post('http://localhost:5000/api/user/login', formData);
+      if (data.success) {
+        toast.success(data.message);
+        onLogin(data.token);  // Update parent component with token
+        navigate('/'); // Navigate to home page after login
       }
     } catch (error) {
-      console.error('Login error:', error);
-      toast.error('Something went wrong. Please try again.');
-    } finally {
-      setLoading(false);
+      toast.error(error.response?.data?.message || 'Login failed. Please try again.');
     }
   };
 
   return (
-    <motion.div
-      className="flex justify-center items-center min-h-screen bg-neutral-100"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.8 }}
-    >
-      <motion.div
-        className="bg-white p-8 rounded-xl shadow-xl w-96"
-        initial={{ scale: 0.9 }}
-        animate={{ scale: 1 }}
-        transition={{ duration: 0.5, ease: 'easeInOut' }}
-      >
-        <h2 className="text-2xl font-semibold text-center text-gray-800 mb-6">Login</h2>
-
-        <form onSubmit={handleSubmit}>
-          {/* Email Field */}
-          <div className="mb-4">
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
+    <div className='min-h-screen grid lg:grid-cols-2 bg-gray-50'>
+      <div className='flex flex-col justify-center items-center p-6 sm:p-12'>
+        <div className='w-full max-w-md space-y-8'>
+          <div className='text-center mb-8'>
+            <div className='flex flex-col items-center gap-2 group'>
+              <div className='size-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors'>
+                <img src={logo} className='size-6 text-primary' alt="Logo" />
+              </div>
+              <h1 className='text-3xl font-bold text-gray-800 mt-2'>Login</h1>
+              <p className='text-base-content/60'>Welcome back to your Account</p>
+            </div>
           </div>
 
-          {/* Password Field */}
-          <div className="mb-6">
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
+          <form onSubmit={handleSubmit} className='space-y-6'>
+            <div className="flex items-center border border-gray-300 rounded-md shadow-sm group hover:ring-2 hover:ring-primary focus:outline-none">
+              <FaEnvelope className="ml-3 text-gray-500 group-focus:text-primary group-hover:text-primary" />
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border-0 focus:outline-none focus:ring-0 focus:border-none focus:ring-primary focus:border-primary rounded-md"
+                placeholder="Enter your email"
+                required
+              />
+            </div>
+
+            <div className="flex items-center border border-gray-300 rounded-md shadow-sm group hover:ring-2 hover:ring-primary focus:outline-none">
+              <FaLock className="ml-3 text-gray-500 group-focus:text-primary group-hover:text-primary" />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border-0 focus:outline-none focus:ring-0 focus:ring-primary focus:border-primary rounded-md"
+                placeholder="Enter your password"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="ml-2 text-primary group-hover:text-primary"
+              >
+                {showPassword ? <FaEyeSlash /> : <FaEye />}
+              </button>
+            </div>
+
+            <div>
+              <button
+                type="submit"
+                className="w-full py-2 px-4 bg-primary text-white rounded-md hover:bg-primary/80 focus:outline-none focus:ring-2 focus:ring-primary transition duration-200 ease-in-out"
+              >
+                Login
+              </button>
+            </div>
+          </form>
+
+          <div className="text-center mt-4">
+            <p className="text-sm text-gray-600">
+              Don't have an account?{' '}
+              <a href="/register" className="text-primary font-semibold hover:underline">
+                Create Account
+              </a>
+            </p>
           </div>
+        </div>
+      </div>
 
-          {/* Submit Button with hover animation */}
-          <motion.button
-            type="submit"
-            disabled={loading}
-            className={`w-full py-3 ${loading ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-600'} text-white font-semibold rounded-lg shadow-md transition duration-300`}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            {loading ? 'Logging In...' : 'Login'}
-          </motion.button>
-        </form>
-
-        {/* Back to register link */}
-        <motion.div
-          className="text-center mt-4"
-          initial={{ y: 20 }}
-          animate={{ y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <p className="text-sm text-gray-600">Don't have an account? <a href="/register" className="text-blue-500 hover:underline">Register</a></p>
-        </motion.div>
-      </motion.div>
-    </motion.div>
+      <div className='hidden lg:block bg-gray-100 rounded-l-xl shadow-lg'>
+        {/* Optional Image or Illustration */}
+      </div>
+    </div>
   );
 };
 
