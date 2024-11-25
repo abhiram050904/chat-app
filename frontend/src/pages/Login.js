@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { IoClose } from "react-icons/io5";
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { PiUserCircle } from "react-icons/pi";
+import { useDispatch, useSelector } from 'react-redux';
+import { setToken, setUser } from '../redux/UserSlice';
 
-const Login = ({ onLogin }) => {  // Accept the onLogin prop
+const Login = ({ onLogin }) => {
+  const user = useSelector(state => state.user);
+  console.log('redux',user)
   const [data, setData] = useState({
     email: "",
     password: "",
@@ -13,10 +17,17 @@ const Login = ({ onLogin }) => {  // Accept the onLogin prop
   const [isEmailValid, setIsEmailValid] = useState(false);
   const [isPasswordFieldVisible, setIsPasswordFieldVisible] = useState(false);
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      dispatch(setToken(token));
+    }
+  }, [dispatch]);
 
   const handleOnChange = (e) => {
     const { name, value } = e.target;
-
     setData((prev) => {
       return {
         ...prev,
@@ -52,18 +63,20 @@ const Login = ({ onLogin }) => {  // Accept the onLogin prop
 
     try {
       const response = await axios.post(URL, { email: data.email, password: data.password });
-      console.log(response);
 
       if (response.data.success) {
-        localStorage.setItem('token', response.data.token);  // Save token to localStorage
+        localStorage.setItem('token', response.data.token);
         toast.success(response.data.message);
+
+        dispatch(setUser(response?.data?.data));
+        dispatch(setToken(response?.data?.token));
 
         setData({
           email: "",
           password: "",
         });
 
-        onLogin(response.data.token);  // Update authentication state in App.js
+        onLogin(response.data.token);
 
         setTimeout(() => {
           navigate('/');

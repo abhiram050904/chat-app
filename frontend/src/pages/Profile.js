@@ -18,6 +18,7 @@ const Profile = () => {
         .then(response => {
           setUserInfo(response.data.data);
           setName(response.data.data.name);
+          console.log(response.data.data)
         })
         .catch(error => console.error(error));
     }
